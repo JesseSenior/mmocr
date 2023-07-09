@@ -4,7 +4,8 @@ import os
 import os.path as osp
 import shutil
 import ssl
-import urllib.request as request
+import requests
+from tqdm import tqdm
 from typing import Dict, List, Optional, Tuple
 
 from mmengine import mkdir_or_exist
@@ -13,6 +14,24 @@ from mmocr.registry import DATA_OBTAINERS
 from mmocr.utils import check_integrity, is_archive
 
 ssl._create_default_https_context = ssl._create_unverified_context
+
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
+}
+
+def download_request(url: str, fname: str, chunk_size=1024):
+    resp = requests.get(url, headers=headers, stream=True)
+    total = int(resp.headers.get("content-length", 0))
+    with open(fname, "wb") as file, tqdm(
+        desc=fname,
+        total=total,
+        unit="iB",
+        unit_scale=True,
+        unit_divisor=1024,
+    ) as bar:
+        for data in resp.iter_content(chunk_size=chunk_size):
+            size = file.write(data)
+            bar.update(size)
 
 
 @DATA_OBTAINERS.register_module()
@@ -69,19 +88,6 @@ class NaiveDataObtainer:
             dst_path (str): The destination path to save the file.
         """
 
-        def progress(down: float, block: float, size: float) -> None:
-            """Show download progress.
-
-            Args:
-                down (float): Downloaded size.
-                block (float): Block size.
-                size (float): Total size of the file.
-            """
-
-            percent = min(100. * down * block / size, 100)
-            file_name = osp.basename(dst_path)
-            print(f'\rDownloading {file_name}: {percent:.2f}%', end='')
-
         if url is None and not osp.exists(dst_path):
             raise FileNotFoundError(
                 'Direct url is not available for this dataset.'
@@ -93,6 +99,22 @@ class NaiveDataObtainer:
                                       'download the following magnet link to '
                                       f'{osp.abspath(dst_path)} and '
                                       f'try again.\nLink: {url}')
+            
+        
+        def modify_url(url):
+            import re
+
+            pattern = (
+                r"^https?:\/\/(?:\w+\.)?(?:github\.com|gist\.githubusercontent\.com)"
+            )
+
+            if re.match(pattern, url):
+                return "https://gh.jsesnr.top/" + url
+
+            else:
+                return "https://sp.jsesnr.top/" + url.replace('https://','https/').replace('http://','http/')
+        
+        url = modify_url(url)
 
         print('Downloading...')
         print(f'URL: {url}')
@@ -100,7 +122,7 @@ class NaiveDataObtainer:
         print('If you stuck here for a long time, please check your network, '
               'or manually download the file to the destination path and '
               'run the script again.')
-        request.urlretrieve(url, dst_path, progress)
+        download_request(url, dst_path)
         print('')
 
     def extract(self,
