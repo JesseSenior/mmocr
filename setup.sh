@@ -12,3 +12,7 @@ pip install pqi; pqi use tuna
 pip install -U openmim
 mim install mmengine mmcv mmdet
 pip install -v -e .
+
+wget https://download.openmmlab.com/mmocr/data/icdar2015/mini_icdar2015.tar.gz
+mkdir -p data/
+tar xzvf mini_icdar2015.tar.gz -C data/

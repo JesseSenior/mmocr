@@ -4,6 +4,7 @@ Import:
   - configs/textdet/maskrcnn/metafile.yml
   - configs/textdet/drrg/metafile.yml
   - configs/textdet/fcenet/metafile.yml
+  - configs/textdet/fcenetlight/metafile.yml
   - configs/textdet/panet/metafile.yml
   - configs/textdet/psenet/metafile.yml
   - configs/textdet/textsnake/metafile.yml
