@@ -2,10 +2,9 @@
 import glob
 import os
 import os.path as osp
+import time
 import shutil
 import ssl
-import requests
-from tqdm import tqdm
 from typing import Dict, List, Optional, Tuple
 
 from mmengine import mkdir_or_exist
@@ -14,24 +13,6 @@ from mmocr.registry import DATA_OBTAINERS
 from mmocr.utils import check_integrity, is_archive
 
 ssl._create_default_https_context = ssl._create_unverified_context
-
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
-}
-
-def download_request(url: str, fname: str, chunk_size=1024):
-    resp = requests.get(url, headers=headers, stream=True)
-    total = int(resp.headers.get("content-length", 0))
-    with open(fname, "wb") as file, tqdm(
-        desc=fname,
-        total=total,
-        unit="iB",
-        unit_scale=True,
-        unit_divisor=1024,
-    ) as bar:
-        for data in resp.iter_content(chunk_size=chunk_size):
-            size = file.write(data)
-            bar.update(size)
 
 
 @DATA_OBTAINERS.register_module()
@@ -122,7 +103,13 @@ class NaiveDataObtainer:
         print('If you stuck here for a long time, please check your network, '
               'or manually download the file to the destination path and '
               'run the script again.')
-        download_request(url, dst_path)
+        for retry in range(1,21):
+            if os.system(f"wget {url} -q --show-progress --progress=bar:force -N -c --no-check-certificate -O {dst_path}") == 0:
+                break
+            else:
+                print(f"Retry {retry}/20 times.\033[1A",end="\r")
+                time.sleep(1)
+
         print('')
 
     def extract(self,

@@ -1,3 +1,49 @@
+# DLCV 课程设计
+
+基于像素分割的场景文本检测算法综述
+
+## 1. 实验环境
+
+1. GPU 0: Tesla P100-PCIE-12GB
+2. GPU 1: Tesla P100-PCIE-16GB
+3. GPU 2: Tesla P100-PCIE-16GB
+
+## 2. 代码运行方式
+
+1. 在ubuntu服务器上配置docker容器（[docker-ubuntu-enhanced](https://github.com/JesseSenior/docker-ubuntu-enhanced)）
+
+```bash
+./docker-ubuntu-enhanced/scripts/run.sh
+
+# 或者
+./docker-ubuntu-enhanced/scripts/build.sh
+docker run \
+    -d \
+    --name 'mmocr' \
+    -e AUTHORIZED_KEY='Your SSH pub key' \
+    -p 3333:22 \
+    --gpus all \
+    --shm-size 4G \
+    --restart unless-stopped \
+    ubuntu-enhanced:latest
+```
+
+**注意：** docker容器有可能在`systemctl daemon-reload`后与Nvidia显卡“失联”，解决方法参考这个[issue](https://github.com/NVIDIA/nvidia-docker/issues/1730)。
+
+2. 在容器中运行以下命令
+
+```bash
+change_mirrors; init_essentials; init_miniconda
+git clone https://github.com/JesseSenior/mmocr.git --depth 1
+cd mmocr
+source ./setup.sh
+```
+
+3. 代码训练参考: `train.sh`
+4. 代码测试参考: `test.sh`
+
+---
+
 <div align="center">
   <img src="resources/mmocr-logo.png" width="500px"/>
   <div>&nbsp;</div>
@@ -35,11 +81,6 @@
 
 </div>
 
-<div align="center">
-
-English | [简体中文](README_zh-CN.md)
-
-</div>
 <div align="center">
   <a href="https://openmmlab.medium.com/" style="text-decoration:none;">
     <img src="https://user-images.githubusercontent.com/25839884/219255827-67c1a27f-f8c5-46a9-811d-5e57448c61d1.png" width="3%" alt="" /></a>
