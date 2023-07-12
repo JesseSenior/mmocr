@@ -11,7 +11,7 @@ from mmocr.structures import TextDetDataSample
 
 
 @MODELS.register_module()
-class FCEHead(BaseTextDetHead):
+class FCELightHead(BaseTextDetHead):
     """The class for implementing FCENet head.
 
     FCENet(CVPR2021): `Fourier Contour Embedding for Arbitrary-shaped Text
@@ -58,7 +58,7 @@ class FCEHead(BaseTextDetHead):
 
         self.in_channels = in_channels
         self.fourier_degree = fourier_degree
-        self.out_channels_cls = 1
+        self.out_channels_cls = 4
         self.out_channels_reg = (2 * self.fourier_degree + 1) * 2
 
         self.out_conv_cls = nn.Conv2d(

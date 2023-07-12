@@ -54,8 +54,8 @@ class FCEModuleLoss(TextSnakeModuleLoss):
         level_size_divisors: Tuple[int] = (8, 16, 32),
         level_proportion_range: Tuple[Tuple[int]] = ((0, 0.4), (0.3, 0.7),
                                                      (0.6, 1.0)),
-        loss_tr: Dict = dict(type='MaskedBalancedBCELoss'),
-        loss_tcl: Dict = dict(type='MaskedBCELoss'),
+        loss_tr: Dict = dict(type='MaskedBalancedBCEWithLogitsLoss'),
+        loss_tcl: Dict = dict(type='MaskedBCEWithLogitsLoss'),
         loss_reg_x: Dict = dict(type='SmoothL1Loss', reduction='none'),
         loss_reg_y: Dict = dict(type='SmoothL1Loss', reduction='none'),
     ) -> None:

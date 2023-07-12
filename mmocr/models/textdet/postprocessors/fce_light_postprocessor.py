@@ -14,7 +14,7 @@ from .base import BaseTextDetPostProcessor
 
 
 @MODELS.register_module()
-class FCEPostprocessor(BaseTextDetPostProcessor):
+class FCELightPostprocessor(BaseTextDetPostProcessor):
     """Decoding predictions of FCENet to instances.
 
     Args:
@@ -45,7 +45,7 @@ class FCEPostprocessor(BaseTextDetPostProcessor):
                  text_repr_type: str = 'poly',
                  alpha: float = 1.0,
                  beta: float = 2.0,
-                 score_thr: float = 0.5,
+                 score_thr: float = 0.3,
                  nms_thr: float = 0.1,
                  **kwargs) -> None:
         super().__init__(
@@ -155,14 +155,15 @@ class FCEPostprocessor(BaseTextDetPostProcessor):
         """
 
         cls_pred = pred_result['cls_res']
-        tcl_pred = cls_pred[0].softmax(dim=0).data.cpu().numpy()
+        tr_pred = cls_pred[0:2].softmax(dim=0).data.cpu().numpy()
+        tcl_pred = cls_pred[2:].softmax(dim=0).data.cpu().numpy()
 
         reg_pred = pred_result['reg_res'].permute(1, 2, 0).data.cpu().numpy()
         x_pred = reg_pred[:, :, :2 * self.fourier_degree + 1]
         y_pred = reg_pred[:, :, 2 * self.fourier_degree + 1:]
 
-        score_pred = tcl_pred[0]
-        tr_pred_mask = (tcl_pred[0]) > self.score_thr
+        score_pred = (tr_pred[1]**self.alpha) * (tcl_pred[1]**self.beta)
+        tr_pred_mask = (score_pred) > self.score_thr
         tr_mask = fill_hole(tr_pred_mask)
 
         tr_contours, _ = cv2.findContours(

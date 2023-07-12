@@ -15,7 +15,7 @@ from .textsnake_module_loss import TextSnakeModuleLoss
 
 
 @MODELS.register_module()
-class FCEModuleLoss(TextSnakeModuleLoss):
+class FCELightModuleLoss(TextSnakeModuleLoss):
     """The class for implementing FCENet loss.
 
     FCENet(CVPR2021): `Fourier Contour Embedding for Arbitrary-shaped Text
@@ -52,6 +52,7 @@ class FCEModuleLoss(TextSnakeModuleLoss):
         level_size_divisors: Tuple[int] = (8, 16, 32),
         level_proportion_range: Tuple[Tuple[int]] = ((0, 0.4), (0.3, 0.7),
                                                      (0.6, 1.0)),
+        loss_tr: Dict = dict(type='MaskedBalancedBCELoss'),
         loss_tcl: Dict = dict(type='MaskedBCELoss'),
         loss_reg_x: Dict = dict(type='SmoothL1Loss', reduction='none'),
         loss_reg_y: Dict = dict(type='SmoothL1Loss', reduction='none'),
@@ -64,6 +65,8 @@ class FCEModuleLoss(TextSnakeModuleLoss):
         self.level_size_divisors = level_size_divisors
         self.level_proportion_range = level_proportion_range
 
+        loss_tr.update(negative_ratio=negative_ratio)
+        self.loss_tr = MODELS.build(loss_tr)
         self.loss_tcl = MODELS.build(loss_tcl)
         self.loss_reg_x = MODELS.build(loss_reg_x)
         self.loss_reg_y = MODELS.build(loss_reg_y)
@@ -81,7 +84,8 @@ class FCEModuleLoss(TextSnakeModuleLoss):
             data_samples (list[TextDetDataSample]): The data samples.
 
         Returns:
-            dict: The dict for fcenet losses with loss_center, loss_reg_x and loss_reg_y.
+            dict: The dict for fcenet losses with loss_text, loss_center,
+                loss_reg_x and loss_reg_y.
         """
         assert isinstance(preds, list) and len(preds) == 3
         p3_maps, p4_maps, p5_maps = self.get_targets(data_samples)
@@ -91,19 +95,23 @@ class FCEModuleLoss(TextSnakeModuleLoss):
 
         losses = multi_apply(self.forward_single, preds, gts)
 
+        loss_tr = torch.tensor(0., device=device).float()
         loss_tcl = torch.tensor(0., device=device).float()
         loss_reg_x = torch.tensor(0., device=device).float()
         loss_reg_y = torch.tensor(0., device=device).float()
 
         for idx, loss in enumerate(losses):
             if idx == 0:
-                loss_tcl += sum(loss)
+                loss_tr += sum(loss)
             elif idx == 1:
+                loss_tcl += sum(loss)
+            elif idx == 2:
                 loss_reg_x += sum(loss)
             else:
                 loss_reg_y += sum(loss)
 
         results = dict(
+            loss_text=loss_tr,
             loss_center=loss_tcl,
             loss_reg_x=loss_reg_x,
             loss_reg_y=loss_reg_y,
@@ -132,7 +140,8 @@ class FCEModuleLoss(TextSnakeModuleLoss):
         gt = gt.permute(0, 2, 3, 1).contiguous()
 
         k = 2 * self.fourier_degree + 1
-        tcl_pred = cls_pred[:, :, :, 0].view(-1, 1)
+        tr_pred = cls_pred[:, :, :, :2].view(-1, 2)
+        tcl_pred = cls_pred[:, :, :, 2:].view(-1, 2)
         x_pred = reg_pred[:, :, :, 0:k].view(-1, k)
         y_pred = reg_pred[:, :, :, k:2 * k].view(-1, k)
 
@@ -143,6 +152,8 @@ class FCEModuleLoss(TextSnakeModuleLoss):
         y_map = gt[:, :, :, 3 + k:].view(-1, k)
 
         tr_train_mask = (train_mask * tr_mask).float()
+        # text region loss
+        loss_tr = self.loss_tr(tr_pred.softmax(-1)[:, 1], tr_mask, train_mask)
 
         # text center line loss
         tr_neg_mask = 1 - tr_train_mask
@@ -168,7 +179,7 @@ class FCEModuleLoss(TextSnakeModuleLoss):
             loss_reg_y = torch.mean(weight * self.loss_reg_x(
                 ft_y_pre[tr_train_mask.bool()], ft_y[tr_train_mask.bool()]))
 
-        return loss_tcl, loss_reg_x, loss_reg_y
+        return loss_tr, loss_tcl, loss_reg_x, loss_reg_y
 
     def get_targets(self, data_samples: List[TextDetDataSample]) -> Tuple:
         """Generate loss targets for fcenet from data samples.
